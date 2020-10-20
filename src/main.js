@@ -65,7 +65,8 @@ const init = () => {
     screenWidthForBars = canvasWidth - (numOfSpawnPos * barSpacing) - margin * 2;
     barWidth = screenWidthForBars / numOfSpawnPos;
 
-    document.addEventListener('keypress', function(e){player.addForce(e)});
+    document.addEventListener('keydown', function(e){player.addForce(e)});
+    document.addEventListener('keyup', function(e){player.addForce(e)});
 
     loop();
 }
