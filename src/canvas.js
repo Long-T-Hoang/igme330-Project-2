@@ -9,8 +9,9 @@
 
 import * as utils from './utils.js';
 import * as classes from './classes.js';
-import { getProjectiles } from './main.js';
+import { getPlayer, getProjectiles } from './main.js';
 
+let player;
 let projectiles;
 let ctx,canvasWidth,canvasHeight,gradient, audioData;
 
@@ -22,6 +23,7 @@ const setupCanvas = (canvasElement) => {
 	// create a gradient that runs top to bottom
     gradient = utils.getLinearGradient(ctx,0,0,0,canvasHeight,[{percent:1,color:"blue"},{percent:0,color:"magenta"}]);
     projectiles = getProjectiles();
+    player = getPlayer();
 }
 
 const draw = (params={}, projectiles, audioDataRef) => {
@@ -80,6 +82,7 @@ const visualizer = (params={}) => {
         {
             ctx.save();
             ctx.rotate(Math.PI / 2 * j);
+
             for(let i = 0; i < numOfBar; i++)
             {
                 let xPos = margin + i * (barWidth + barSpacing) - canvasWidth / 2;
@@ -138,6 +141,8 @@ const objects = () => {
     {
         p.draw(ctx, canvasWidth, canvasHeight);
     }
+
+    player.draw(ctx, canvasWidth, canvasHeight);
 }
 
 const effects = (params={}) => {

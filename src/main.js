@@ -16,19 +16,19 @@ const drawParams =
     showGradient : true,
     showBars : true,
     showCircles : true,
-    showNoise : true,
+    showNoise : false,
     showInvert : false,
     showEmboss: false
 };
 
-let player;
-let margin, barWidth, barSpacing;
 let audioData, analyserNode;
 let projectiles = [];
 let deltaTime, now, lastUpdate = Date.now();
 let canvasWidth, canvasHeight;
 let timer = 0;
 const SPAWN_TIME = 2;
+let size, numOfSpawnPos, barSpacing, margin, screenWidthForBars, barWidth;
+let player = new classes.Player(0, 0);
 
 let SPAWN_START_POSITION;
 
@@ -56,6 +56,16 @@ const init = () => {
         2: {x: canvasWidth / 2, y: canvasHeight / 2},
         3: {x: -canvasWidth / 2, y: canvasHeight / 2}
     }
+
+    // For calculating spawning location
+    size = audioData.length;
+    numOfSpawnPos = size / 4;
+    barSpacing = 4;
+    margin = 50;
+    screenWidthForBars = canvasWidth - (numOfSpawnPos * barSpacing) - margin * 2;
+    barWidth = screenWidthForBars / numOfSpawnPos;
+
+    document.addEventListener('keypress', function(e){player.addForce(e)});
 
     loop();
 }
@@ -183,25 +193,19 @@ const loop = () => {
 }
 
 const spawnProjectiles = () => {
-    let size = audioData.length;
-    let numOfSpawnPos = size / 4;
-
-    // For calculating spawning location
-    let barSpacing = 4;
-    let margin = 50;
-    let screenWidthForBars = canvasWidth - (numOfSpawnPos * barSpacing) - margin * 2;
-    let barWidth = screenWidthForBars / numOfSpawnPos;
-
     for(let j = 0; j < 4; j++)
     {
         for(let i = 0; i < numOfSpawnPos; i += 8)
         {
-            if(audioData[j * numOfSpawnPos + i] >= 50)
-            {
-                let x = SPAWN_START_POSITION[j].x + (margin + barWidth / 2 + i * (barWidth + barSpacing)) * (1 - (j % 2));
-                let y = SPAWN_START_POSITION[j].y + (margin + barWidth / 2 + i * (barWidth + barSpacing)) * (j % 2);
+            let index = j * numOfSpawnPos + i;
 
-                projectiles.push(new classes.Projectile(x, y, 0 ,0, audioData[j * numOfSpawnPos + i] / 255, audioData[j * numOfSpawnPos + i] / 255));
+            if(audioData[index] >= 25)
+            {
+                let projPos = margin + barWidth / 2 + i * (barWidth + barSpacing);
+                let x = SPAWN_START_POSITION[j].x + projPos * (1 - (j % 2));
+                let y = SPAWN_START_POSITION[j].y + projPos * (j % 2);
+
+                projectiles.push(new classes.Projectile(x, y, 0 ,0, audioData[index] / 255, audioData[index] / 255, player));
             }
         }
     }
@@ -218,6 +222,8 @@ const gameLoop = () => {
             projectiles.splice(projectiles.indexOf(p), 1);
         }
     }
+
+    player.move(deltaTime);
 }
 
 const clearProjectiles = () => {
@@ -225,5 +231,6 @@ const clearProjectiles = () => {
 }
 
 const getProjectiles = () => {return projectiles;}
+const getPlayer = () => {return player;}
 
-export {init, getProjectiles};
+export {init, getProjectiles, getPlayer};
