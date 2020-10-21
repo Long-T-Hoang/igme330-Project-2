@@ -14,6 +14,7 @@ import { getPlayer, getProjectiles } from './main.js';
 let player;
 let projectiles;
 let ctx,canvasWidth,canvasHeight,gradient, audioData;
+let angleOffset = 0;
 
 const setupCanvas = (canvasElement) => {
 	// create drawing context
@@ -26,7 +27,7 @@ const setupCanvas = (canvasElement) => {
     player = getPlayer();
 }
 
-const draw = (params={}, projectiles, audioDataRef) => {
+const draw = (params={}, audioDataRef, deltaTime) => {
   // 1 - populate the audioData array with the frequency data from the analyserNode
 	// notice these arrays are passed "by reference" 
 	// OR
@@ -35,7 +36,7 @@ const draw = (params={}, projectiles, audioDataRef) => {
 
     background(params);
 
-    visualizer(params);
+    visualizer(params, deltaTime);
 
     objects();
 
@@ -60,40 +61,50 @@ const background = (params={}) => {
     }
 }
 
-const visualizer = (params={}) => {
+const visualizer = (params={}, deltaTime) => {
     // 4 - draw bars
     if(params.showBars)
     {
+        // Circular
+        let numOfBar = audioData.length;   
         let barSpacing = 4;
-        let margin = 50;
-        let numOfBar = audioData.length / 4;    // Number of bar on each sides
-        let screenWidthForBars = canvasWidth - (numOfBar * barSpacing) - margin * 2;
-        let barWidth = screenWidthForBars / numOfBar;
-        let barHeight = 75;
-        let barMultiplierOffset = 1.1;
+        let radiusOffset = 75; // The higher, the closer the inner radius is to the center
+        let minimumHeight = 200; 
+        let maximumHeight = 270;
+        let innerRadius = canvasHeight / 2 - radiusOffset;
+        let outerRadius = innerRadius + maximumHeight;
+        let circumference = 2 * innerRadius * Math.PI;
+        let lengthForBars = circumference - numOfBar * barSpacing;
+        let barWidth = lengthForBars / numOfBar;
+        let angleDelta = Math.PI / 36;
+        let angleBetweenBars = 2 * Math.PI / numOfBar;
 
         ctx.save();
+
         ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
         ctx.strokeStyle = 'rgba(0, 0, 0, 0.5)';
         ctx.translate(canvasWidth / 2, canvasHeight / 2);
-        //ctx.rotate(180);
+        ctx.rotate(angleOffset);
 
-        for(let j = 0; j < 4; j++)
+        // Draw bars
+        for(let i = 0; i < numOfBar; i++)
         {
             ctx.save();
-            ctx.rotate(Math.PI / 2 * j);
+            ctx.rotate(angleBetweenBars * i);
 
-            for(let i = 0; i < numOfBar; i++)
-            {
-                let xPos = margin + i * (barWidth + barSpacing) - canvasWidth / 2;
-                let yPos = barHeight * (audioData[i + j * numOfBar] / 255) - canvasHeight / 2 - barHeight;
+            let x = -barWidth / 2;
+            let y = -outerRadius;
+            let height = (maximumHeight - minimumHeight) * audioData[i] / 255 + minimumHeight;
 
-                ctx.fillRect(xPos, yPos, barWidth, barHeight * barMultiplierOffset);
-                ctx.strokeRect(xPos, yPos, barWidth, barHeight * barMultiplierOffset);
-            }
-
+            ctx.fillRect(x, y, barWidth, height);
+            ctx.strokeRect(x, y, barWidth, height);
             ctx.restore();
         }
+
+        // Spin the visualizer
+        angleOffset += angleDelta * deltaTime;
+
+        if(angleOffset == Math.PI * 2) angleOffset = 0;
 
         ctx.restore();
     }

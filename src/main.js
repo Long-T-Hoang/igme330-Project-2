@@ -29,6 +29,10 @@ let timer = 0;
 const SPAWN_TIME = 2;
 let size, numOfSpawnPos, barSpacing, margin, screenWidthForBars, barWidth;
 let player = new classes.Player(0, 0);
+let scoreRef = 
+{
+    score: 0
+}
 
 let SPAWN_START_POSITION;
 
@@ -48,13 +52,13 @@ const init = () => {
     canvasHeight = canvas.getHeight();
     canvasWidth = canvas.getWidth();
     analyserNode = audio.analyserNode;
-    audioData = new Uint8Array(analyserNode.fftSize / 2);
+    audioData = new Uint8Array(analyserNode.fftSize / 4);
 
     SPAWN_START_POSITION = {
-        0: {x: -canvasWidth / 2, y: -canvasHeight / 2},
-        1: {x: canvasWidth / 2, y: -canvasHeight / 2},
-        2: {x: canvasWidth / 2, y: canvasHeight / 2},
-        3: {x: -canvasWidth / 2, y: canvasHeight / 2}
+        0: {x: -canvasWidth / 2, y: -canvasHeight / 2, direction: 1},
+        1: {x: canvasWidth / 2, y: -canvasHeight / 2, direction: 1},
+        2: {x: canvasWidth / 2, y: canvasHeight / 2, direction: -1},
+        3: {x: -canvasWidth / 2, y: canvasHeight / 2, direction: -1}
     }
 
     // For calculating spawning location
@@ -80,6 +84,7 @@ const setupUI = (canvasElement) => {
     const volumeLabel = document.querySelector("#volumeLabel");
     const trackSelect = document.querySelector("#trackSelect");
     const gradientCB = document.querySelector("#gradientCB");
+    const scoreLabel = document.querySelector("#scoreLabel");
     gradientCB.checked = drawParams.showGradient;
     const barsCB = document.querySelector("#barsCB");
     barsCB.checked = drawParams.showBars;
@@ -180,7 +185,7 @@ const loop = () => {
 
     analyserNode.getByteFrequencyData(audioData);
 
-    canvas.draw(drawParams, projectiles, audioData);
+    canvas.draw(drawParams, audioData, deltaTime);
 
     timer += deltaTime;
 
@@ -196,15 +201,15 @@ const loop = () => {
 const spawnProjectiles = () => {
     for(let j = 0; j < 4; j++)
     {
-        for(let i = 0; i < numOfSpawnPos; i += 8)
+        for(let i = 0; i < numOfSpawnPos; i++)
         {
             let index = j * numOfSpawnPos + i;
 
             if(audioData[index] >= 25)
             {
                 let projPos = margin + barWidth / 2 + i * (barWidth + barSpacing);
-                let x = SPAWN_START_POSITION[j].x + projPos * (1 - (j % 2));
-                let y = SPAWN_START_POSITION[j].y + projPos * (j % 2);
+                let x = SPAWN_START_POSITION[j].x + projPos * (1 - (j % 2)) * SPAWN_START_POSITION[j].direction;
+                let y = SPAWN_START_POSITION[j].y + projPos * (j % 2) * SPAWN_START_POSITION[j].direction;
 
                 projectiles.push(new classes.Projectile(x, y, 0 ,0, audioData[index] / 255, audioData[index] / 255, player));
             }
@@ -216,7 +221,8 @@ const gameLoop = () => {
     for(let p of projectiles)
     {
         p.move(deltaTime);
-        p.collision();
+        p.collision(scoreRef);
+        scoreLabel.innerHTML = `Score: ${scoreRef.score}`;
 
         if(p.destroy)
         {
@@ -224,7 +230,7 @@ const gameLoop = () => {
         }
     }
 
-    player.move(deltaTime);
+    player.move(deltaTime, canvasWidth, canvasHeight);
 }
 
 const clearProjectiles = () => {

@@ -9,7 +9,7 @@ class Projectile
         this.yDes = this.player.y;
         this.damage = damage;
         this.speed = 200;
-        this.radius = radius * 10;
+        this.radius = radius * 5 + 5;
         this.destroy = false;
     }
 
@@ -29,12 +29,19 @@ class Projectile
         ctx.restore();
     }
 
-    collision()
+    collision(scoreRef)
     {
         let distanceToDestination = Math.sqrt(Math.pow(this.x - this.xDes, 2) + Math.pow(this.y - this.yDes, 2));
         let distanceToPlayer = Math.sqrt(Math.pow(this.x - this.player.x, 2) + Math.pow(this.y - this.player.y, 2));
 
-        if(distanceToDestination < this.radius || distanceToPlayer < this.radius + this.player.radius)
+        if(distanceToDestination < this.radius)
+        {
+            this.destroy = true;
+            scoreRef.score += 10;
+            return;
+        }
+
+        if(distanceToPlayer < this.radius + this.player.radius)
         {
             this.destroy = true;
         }
@@ -56,11 +63,11 @@ class Player
         this.x = x;
         this.y = y;
         this.speed = 200;
-        this.radius = 20;
+        this.radius = 15;
         this.acc = {x : 0, y : 0};
         this.friction = 0.98;
         this.keyMap = {};
-        this.clampOffset = 20;
+        this.clampOffset = 50;
     }
 
     draw(ctx, canvasWidth, canvasHeight)
@@ -100,7 +107,7 @@ class Player
 
     }
 
-    move(deltaTime)
+    move(deltaTime, canvasWidth, canvasHeight)
     {
         // Change acceleration
         for(let k in this.keyMap)
@@ -131,14 +138,16 @@ class Player
         this.y += this.acc.y * this.speed * deltaTime;
 
         // Clamp position
-        //if(this.x < -canvasWidth / 2 + this.clampOffset || this.x > canvasWidth / 2 - this.clampOffset)
-        //{
-            //this.x = altX;
-        //}
-        //if(this.y < -canvasHeight / 2 + this.clampOffset || this.y > canvasHeight / 2 - this.clampOffset)
-        //{
-            //this.y = altY;
-        //}
+        if(this.x < -canvasWidth / 2 + this.clampOffset || this.x > canvasWidth / 2 - this.clampOffset)
+        {
+            this.x = altX;
+            this.acc.x *= -1;
+        }
+        if(this.y < -canvasHeight / 2 + this.clampOffset || this.y > canvasHeight / 2 - this.clampOffset)
+        {
+            this.y = altY;
+            this.acc.y *= -1;
+        }
 
         // Apply friction
         this.acc.x *= this.friction;
