@@ -8,7 +8,15 @@
 </head>
 <body>
 <main>
-	<canvas width="600" height="600"></canvas>
+	<div id="canvas-group">
+		<canvas width="600" height="600" id="main-canvas"></canvas>
+		<canvas width="600" height="600" id="visualizer"></canvas>
+	</div>
+
+	<div id="progress">
+		<progress id="audio-progress" value="0" max="1"></progress>
+	</div>
+
 	<div id="controls">
 		<section>
 			<button id="playButton" data-playing="no"></button>
@@ -20,6 +28,7 @@
 					<option value="media/NieR Automata - Simone.mp3" selected>Simone</option>
 					<option value="media/NieR - The Wretched Automatons.mp3">The Wretched Automatons</option>
 					<option value="media/NieR - Shadowlord.mp3">Shadowlord</option>
+					<option value="media/NieR - Song of the Ancients - Fate.mp3">Song of the Ancients - Fate</option>
 				</select>
 			</label>
 		</section>

@@ -76,4 +76,4 @@ const setVolume = (value) => {
     gainNode.gain.value = value;
 }
 
-export{audioCtx, setupWebAudio, playCurrentSound, pauseCurrentSound, loadSoundFile, setVolume, analyserNode};
+export{audioCtx, setupWebAudio, playCurrentSound, pauseCurrentSound, loadSoundFile, setVolume, analyserNode, element};

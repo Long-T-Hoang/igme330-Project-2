@@ -13,28 +13,30 @@ import * as classes from './classes.js';
 
 const drawParams =
 {
-    showGradient : true,
+    showGradient : false,
     showBars : true,
-    showCircles : true,
+    showCircles : false,
     showNoise : false,
     showInvert : false,
     showEmboss: false
 };
 
 let audioData, analyserNode;
+let prevAudioData = [];
 let projectiles = [];
 let deltaTime, now, lastUpdate = Date.now();
 let canvasWidth, canvasHeight;
 let timer = 0;
-const SPAWN_TIME = 2;
-let size, numOfSpawnPos, barSpacing, margin, screenWidthForBars, barWidth;
+const SPAWN_TIME = 0.7;
+let angleOffset = 0;
 let player = new classes.Player(0, 0);
+let mainCanvas, visualizerCanvas;
+let audioDuration = 0, audioStart, audioCurrent = 0, audioElapsed = 0;
+let progressBar = document.querySelector("#audio-progress");
 let scoreRef = 
 {
     score: 0
 }
-
-let SPAWN_START_POSITION;
 
 // 1 - here we are faking an enumeration
 const DEFAULTS = Object.freeze({
@@ -45,32 +47,33 @@ const init = () => {
     audio.setupWebAudio(DEFAULTS.sound1);
 
 	console.log("init called");
-	console.log(`Testing utils.getRandomColor() import: ${utils.getRandomColor()}`);
-	let canvasElement = document.querySelector("canvas"); // hookup <canvas> element
-    setupUI(canvasElement);
-    canvas.setupCanvas(canvasElement);
+    console.log(`Testing utils.getRandomColor() import: ${utils.getRandomColor()}`);
+    let canvasGroup = document.querySelector("#canvas-group")
+    mainCanvas = document.querySelector("#main-canvas"); // hookup <canvas> element
+    visualizerCanvas = document.querySelector("#visualizer");
+    setupUI(canvasGroup);
+    canvas.setupCanvas(mainCanvas, visualizerCanvas);
     canvasHeight = canvas.getHeight();
     canvasWidth = canvas.getWidth();
     analyserNode = audio.analyserNode;
     audioData = new Uint8Array(analyserNode.fftSize / 4);
 
-    SPAWN_START_POSITION = {
-        0: {x: -canvasWidth / 2, y: -canvasHeight / 2, direction: 1},
-        1: {x: canvasWidth / 2, y: -canvasHeight / 2, direction: 1},
-        2: {x: canvasWidth / 2, y: canvasHeight / 2, direction: -1},
-        3: {x: -canvasWidth / 2, y: canvasHeight / 2, direction: -1}
+    for(let i = 0; i < audioData.length; i++)
+    {
+        prevAudioData[i] = audioData[i];
     }
 
-    // For calculating spawning location
-    size = audioData.length;
-    numOfSpawnPos = size / 4;
-    barSpacing = 4;
-    margin = 50;
-    screenWidthForBars = canvasWidth - (numOfSpawnPos * barSpacing) - margin * 2;
-    barWidth = screenWidthForBars / numOfSpawnPos;
-
-    document.addEventListener('keydown', function(e){player.addForce(e)});
+    document.addEventListener('keydown', function(e){
+        player.addForce(e);
+    });
     document.addEventListener('keyup', function(e){player.addForce(e)});
+
+    document.onfullscreenchange = e => {
+        if(document.fullscreenElement == null)
+        {
+            document.documentElement.style.setProperty('--canvas-height', '600px');
+        }
+    }
 
     loop();
 }
@@ -99,31 +102,38 @@ const setupUI = (canvasElement) => {
 
     volumeLabel.innerHTML = volumeSlider.value / 2 * 100;
 
-  // add .onclick event to button
     fsButton.onclick = e => {
         console.log("init called");
+        document.documentElement.style.setProperty('--canvas-height', '100%');
         utils.goFullscreen(canvasElement);
     };
     
     playButton.onclick = e => {
-        console.log('audioCtx.state before = ${audio.audioCtx.state}');
-
         if(audio.audioCtx.state == "suspended")
         {
             audio.audioCtx.resume();
         }
 
-        console.log('audioCtx.state after = ${audio.audioCtx.state}');
-
+        // Play new audio
         if(e.target.dataset.playing == "no")
         {
             audio.playCurrentSound();
+            audioDuration = audio.element.duration;
             e.target.dataset.playing = "yes";
+            e.target.dataset.pausing = "no";
+            audioStart = audio.audioCtx.currentTime;
         }
+        // Resume audio
+        else if(e.target.dataset.pausing == "yes")
+        {
+            audio.playCurrentSound();
+            e.target.dataset.pausing = "no";
+        }
+        // Pause audio
         else
         {
             audio.pauseCurrentSound();
-            e.target.dataset.playing = "no";
+            e.target.dataset.pausing = "yes";
         }
     }
 
@@ -145,7 +155,9 @@ const setupUI = (canvasElement) => {
         // pause current track if playing
         if(playButton.dataset.playing = "yes")
         {
-            playButton.dispatchEvent(new MouseEvent("click"));
+            audio.pauseCurrentSound();
+            playButton.dataset.playing = "no";
+            playButton.dataset.pausing = "yes";
         }
     }
 
@@ -178,17 +190,26 @@ const loop = () => {
     /* NOTE: This is temporary testing code that we will delete in Part II */
     requestAnimationFrame(loop);
 
+    // Update elasped time
+    if(!audio.element.paused)
+    {
+        audioCurrent = audio.audioCtx.currentTime;
+        audioElapsed = audioCurrent - audioStart;
+        console.log(`Progress ${audioElapsed / audioDuration}`);
+        progressBar.value = audioElapsed / audioDuration;
+    }
+
     // Calculate deltaTime
     now = Date.now();
     deltaTime = (now - lastUpdate) / 1000;
     lastUpdate = Date.now();
 
     analyserNode.getByteFrequencyData(audioData);
+    //analyserNode.getByteTimeDomainData(audioData); // waveform data
 
     canvas.draw(drawParams, audioData, deltaTime);
 
     timer += deltaTime;
-
     if(timer >= SPAWN_TIME) 
     {
         spawnProjectiles();
@@ -199,20 +220,40 @@ const loop = () => {
 }
 
 const spawnProjectiles = () => {
-    for(let j = 0; j < 4; j++)
+    
+    let numMultiplier = 4;
+    let numOfBar = audioData.length / numMultiplier;   
+    let barSpacing = 4;
+    let radiusOffset = 75; // The higher, the closer the inner radius is to the center
+    let minimumHeight = 200; 
+    let maximumHeight = 270;
+    let innerRadius = canvasHeight / 2 - radiusOffset;
+    let outerRadius = innerRadius + maximumHeight;
+    let circumference = 2 * innerRadius * Math.PI;
+    let lengthForBars = circumference - numOfBar * barSpacing;
+    let barWidth = lengthForBars / numOfBar;
+    let angleDelta = Math.PI / 36;
+    let angleBetweenBars = 2 * Math.PI / numOfBar;
+
+    for(let i = 0; i < numOfBar; i++)
     {
-        for(let i = 0; i < numOfSpawnPos; i++)
+        let dataIndex = i * numMultiplier;
+        let data = audioData[dataIndex];
+
+        if(Math.abs(data - prevAudioData[dataIndex]) > 20 || data > 230)
         {
-            let index = j * numOfSpawnPos + i;
+            let height = (maximumHeight - minimumHeight) * data / 255 + minimumHeight;
+            let radius = outerRadius - height;
+            angleOffset = canvas.getAngleOffset();
 
-            if(audioData[index] >= 25)
-            {
-                let projPos = margin + barWidth / 2 + i * (barWidth + barSpacing);
-                let x = SPAWN_START_POSITION[j].x + projPos * (1 - (j % 2)) * SPAWN_START_POSITION[j].direction;
-                let y = SPAWN_START_POSITION[j].y + projPos * (j % 2) * SPAWN_START_POSITION[j].direction;
+            let x = Math.cos(-Math.PI / 2 + i * angleBetweenBars + angleOffset) * radius;
+            let y = Math.sin(-Math.PI / 2 + i * angleBetweenBars + angleOffset) * radius;
 
-                projectiles.push(new classes.Projectile(x, y, 0 ,0, audioData[index] / 255, audioData[index] / 255, player));
-            }
+            let colorString = i % 2 == 0? "rgb(251, 109, 22)" : "rgb(62, 10, 94)";
+            let dataMultiplier = data / 255;
+            projectiles.push(new classes.Projectile(x, y, 0 ,0, dataMultiplier, dataMultiplier, dataMultiplier, player, colorString));
+
+            prevAudioData[dataIndex] = data;
         }
     }
 }
@@ -230,7 +271,7 @@ const gameLoop = () => {
         }
     }
 
-    player.move(deltaTime, canvasWidth, canvasHeight);
+    player.move(deltaTime);
 }
 
 const clearProjectiles = () => {

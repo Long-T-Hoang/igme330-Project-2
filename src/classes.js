@@ -1,6 +1,6 @@
 class Projectile
 {
-    constructor(x, y, xDes, yDes, speed, radius, player, damage = 1)
+    constructor(x, y, xDes, yDes, speed, radius, deathTime, player, colorString, damage = 1)
     {
         this.x = x;
         this.y = y;
@@ -8,18 +8,24 @@ class Projectile
         this.xDes = this.player.x;
         this.yDes = this.player.y;
         this.damage = damage;
-        this.speed = 200;
-        this.radius = radius * 5 + 5;
+        this.speed = Math.pow(speed, 2) * 100 + 50;
+        this.radius = Math.pow(radius, 2) * 5 + 5;
         this.destroy = false;
+        let distance = Math.sqrt(Math.pow(this.x - this.xDes, 2) + Math.pow(this.y - this.yDes, 2));
+        this.acc = {x : (this.xDes - this.x) / distance, y : (this.yDes - this.y) / distance};
+        this.homingAccMultiplier = 0.5;
+        this.timer = 0;
+        this.deathTime = deathTime * 2 + 2;
+        this.colorString = colorString;
     }
 
     draw(ctx, canvasWidth, canvasHeight)
     {
         ctx.save();
 
-        ctx.translate(this.x + canvasWidth / 2, this.y + canvasHeight / 2);
+        ctx.translate(Math.floor(this.x + canvasWidth / 2), Math.floor(this.y + canvasHeight / 2));
 
-        ctx.fillStyle = "black";
+        ctx.fillStyle = this.colorString;
 
         ctx.beginPath();
         ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
@@ -34,13 +40,16 @@ class Projectile
         let distanceToDestination = Math.sqrt(Math.pow(this.x - this.xDes, 2) + Math.pow(this.y - this.yDes, 2));
         let distanceToPlayer = Math.sqrt(Math.pow(this.x - this.player.x, 2) + Math.pow(this.y - this.player.y, 2));
 
-        if(distanceToDestination < this.radius)
+        // Destroy when reaching initial destination or run out of time
+        // Increase player point
+        if(distanceToDestination < this.radius || this.timer > this.deathTime)
         {
             this.destroy = true;
             scoreRef.score += 10;
             return;
         }
 
+        // Destroy when hitting player
         if(distanceToPlayer < this.radius + this.player.radius)
         {
             this.destroy = true;
@@ -49,10 +58,16 @@ class Projectile
 
     move(deltaTime)
     {
-        let distance = Math.sqrt(Math.pow(this.x - this.xDes, 2) + Math.pow(this.y - this.yDes, 2));
+        this.timer += deltaTime;
 
-        this.x += ((this.xDes - this.x) / distance) * this.speed * deltaTime;
-        this.y += ((this.yDes - this.y) / distance) * this.speed * deltaTime;
+        // Apply acceleration
+        this.x += this.acc.x * this.speed * deltaTime;
+        this.y += this.acc.y * this.speed * deltaTime;
+
+        // Slightly home projectiles on player
+        let distancePlayer = Math.sqrt(Math.pow(this.x - this.player.x, 2) + Math.pow(this.y - this.player.y, 2));
+        this.acc.x += ((this.player.x - this.x) / distancePlayer) * this.homingAccMultiplier * deltaTime;
+        this.acc.y += ((this.player.y - this.y) / distancePlayer) * this.homingAccMultiplier * deltaTime;
     }
 }
 
@@ -68,15 +83,31 @@ class Player
         this.friction = 0.98;
         this.keyMap = {};
         this.clampOffset = 50;
+        this.radiusLimit = 200;
+        this.shadowOffset = 3;
+        this.shadowOpacity = 0.4;
+        this.addForceTimer = 0;
     }
 
     draw(ctx, canvasWidth, canvasHeight)
     {
         ctx.save();
 
-        ctx.translate(this.x + canvasWidth / 2, this.y + canvasHeight / 2);
+        ctx.translate(Math.floor(this.x + canvasWidth / 2), Math.floor(this.y + canvasHeight / 2));
+        
+        // Shadow
+        ctx.fillStyle = `rgba(129, 127, 104, ${this.shadowOpacity})`;
 
-        ctx.fillStyle = "red";
+        ctx.beginPath();
+        let distance = Math.sqrt(Math.pow(this.x, 2) + Math.pow(this.y, 2));
+        let vectorFromCenterX = this.x / distance;
+        let vectorFromCenterY = this.y / distance;
+        ctx.arc(vectorFromCenterX * this.shadowOffset,vectorFromCenterY * this.shadowOffset, this.radius, 0, Math.PI * 2);
+        ctx.closePath();
+        ctx.fill();
+
+        // Main circle
+        ctx.fillStyle = "rgb(213, 211, 190)";
 
         ctx.beginPath();
         ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
@@ -88,6 +119,11 @@ class Player
     
     addForce(event)
     {
+        if(this.addForceTimer > 0)
+        {
+            return;
+        }
+
         if(event.key == "w" || event.key == "W")
         {
             this.keyMap["w"] = event.type == 'keydown';
@@ -107,8 +143,10 @@ class Player
 
     }
 
-    move(deltaTime, canvasWidth, canvasHeight)
+    move(deltaTime)
     {
+        this.addForceTimer -= deltaTime;
+
         // Change acceleration
         for(let k in this.keyMap)
         {
@@ -132,21 +170,32 @@ class Player
             }
         }
 
+        // Apply acceleration
         let altX = this.x;
         let altY = this.y;
         this.x += this.acc.x * this.speed * deltaTime;
         this.y += this.acc.y * this.speed * deltaTime;
 
         // Clamp position
-        if(this.x < -canvasWidth / 2 + this.clampOffset || this.x > canvasWidth / 2 - this.clampOffset)
+        let distance = Math.sqrt(this.x * this.x + this.y * this.y);
+        if(distance >= this.radiusLimit)
         {
             this.x = altX;
-            this.acc.x *= -1;
-        }
-        if(this.y < -canvasHeight / 2 + this.clampOffset || this.y > canvasHeight / 2 - this.clampOffset)
-        {
             this.y = altY;
-            this.acc.y *= -1;
+
+            // Vector to center
+            let vectorX = -this.x / distance;
+            let vectorY = -this.y / distance;
+
+            this.acc.x = vectorX;
+            this.acc.y = vectorY;
+
+            // Stop player from sticking to edge of barrier
+            for(let k in this.keyMap)
+            {
+                this.keyMap[k] = false;
+                this.addForceTimer = 0.1;
+            }
         }
 
         // Apply friction

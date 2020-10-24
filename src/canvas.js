@@ -13,26 +13,41 @@ import { getPlayer, getProjectiles } from './main.js';
 
 let player;
 let projectiles;
-let ctx,canvasWidth,canvasHeight,gradient, audioData;
+let mainCtx, visualCtx,canvasWidth,canvasHeight,gradient, audioData;
 let angleOffset = 0;
+let barrierGradient;
 
-const setupCanvas = (canvasElement) => {
-	// create drawing context
-	ctx = canvasElement.getContext("2d");
-	canvasWidth = canvasElement.width;
-	canvasHeight = canvasElement.height;
+const setupCanvas = (mainCanvas, visualizerCanvas) => {
+    // create drawing context
+    mainCtx = mainCanvas.getContext("2d");
+    visualCtx = visualizerCanvas.getContext("2d");
+	canvasWidth = mainCanvas.width;
+	canvasHeight = mainCanvas.height;
 	// create a gradient that runs top to bottom
-    gradient = utils.getLinearGradient(ctx,0,0,0,canvasHeight,[{percent:1,color:"blue"},{percent:0,color:"magenta"}]);
+    gradient = utils.getLinearGradient(visualCtx,0,0,0,canvasHeight,[{percent:1,color:"blue"},{percent:0,color:"magenta"}]);
     projectiles = getProjectiles();
     player = getPlayer();
+
+    // Create barrier gradient
+    barrierGradient = visualCtx.createLinearGradient(0, 0, canvasWidth, canvasHeight);
+    let repeatNum = 200;
+
+    for(let i = 0; i < repeatNum; i++)
+    {
+        let colorString = i % 2 == 0? "rgb(252, 143, 94)" : "rgb(233, 97, 60)";
+        barrierGradient.addColorStop(i / repeatNum, colorString);
+        barrierGradient.addColorStop(((i + 1) / repeatNum) - 0.0001, colorString);
+    }
 }
 
 const draw = (params={}, audioDataRef, deltaTime) => {
   // 1 - populate the audioData array with the frequency data from the analyserNode
 	// notice these arrays are passed "by reference" 
 	// OR
-	//analyserNode.getByteTimeDomainData(audioData); // waveform data
+	
     audioData = audioDataRef;
+
+    mainCtx.clearRect(0, 0, canvasWidth, canvasHeight);
 
     background(params);
 
@@ -40,24 +55,45 @@ const draw = (params={}, audioDataRef, deltaTime) => {
 
     objects();
 
-    effects(params);
+    effects(params, visualCtx);
+    effects(params, mainCtx);
 }
 
 const background = (params={}) => {
-    ctx.save();
-    ctx.fillStyle = "black";
-    ctx.globalAlpha = .1;
-    ctx.fillRect(0, 0, canvasWidth, canvasHeight);
-    ctx.restore();
-		
 	// 3 - draw gradient
     if(params.showGradient)
     {
-        ctx.save();
-        ctx.fillStyle = gradient;
-        ctx.globalAlpha = .3;
-        ctx.fillRect(0, 0, canvasWidth, canvasHeight);
-        ctx.restore();
+        visualCtx.save();
+        visualCtx.fillStyle = barrierGradient;
+        visualCtx.fillRect(0, 0, canvasWidth, canvasHeight);
+        visualCtx.restore();
+        
+        // Barrier
+        visualCtx.save();
+        visualCtx.strokeStyle = "rgb(98, 93, 84)";
+        visualCtx.lineWidth = 4;
+        visualCtx.beginPath();
+        visualCtx.arc(canvasWidth / 2, canvasHeight / 2, player.radiusLimit + player.radius, 0, Math.PI * 2);
+        visualCtx.closePath();
+        visualCtx.stroke();
+        visualCtx.restore();
+    }
+    else
+    {
+        visualCtx.save();
+        visualCtx.fillStyle = "rgb(191, 186, 157)";
+        visualCtx.fillRect(0, 0, canvasWidth, canvasHeight);
+        visualCtx.restore();
+            
+        // Barrier
+        visualCtx.save();
+        visualCtx.strokeStyle = barrierGradient;
+        visualCtx.lineWidth = 4;
+        visualCtx.beginPath();
+        visualCtx.arc(canvasWidth / 2, canvasHeight / 2, player.radiusLimit + player.radius, 0, Math.PI * 2);
+        visualCtx.closePath();
+        visualCtx.stroke();
+        visualCtx.restore();
     }
 }
 
@@ -79,26 +115,27 @@ const visualizer = (params={}, deltaTime) => {
         let angleDelta = Math.PI / 36;
         let angleBetweenBars = 2 * Math.PI / numOfBar;
 
-        ctx.save();
+        visualCtx.save();
 
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
-        ctx.strokeStyle = 'rgba(0, 0, 0, 0.5)';
-        ctx.translate(canvasWidth / 2, canvasHeight / 2);
-        ctx.rotate(angleOffset);
+        visualCtx.fillStyle = 'rgb(107, 108, 96)';
+        visualCtx.strokeStyle = 'rgb(111, 110, 100)';
+        visualCtx.lineWidth = 2;
+        visualCtx.translate(canvasWidth / 2, canvasHeight / 2);
+        visualCtx.rotate(angleOffset);
 
         // Draw bars
         for(let i = 0; i < numOfBar; i++)
         {
-            ctx.save();
-            ctx.rotate(angleBetweenBars * i);
+            visualCtx.save();
+            visualCtx.rotate(angleBetweenBars * i);
 
             let x = -barWidth / 2;
             let y = -outerRadius;
-            let height = (maximumHeight - minimumHeight) * audioData[i] / 255 + minimumHeight;
+            let height = (maximumHeight - minimumHeight) * Math.pow(audioData[i] / 255, 2) + minimumHeight;
 
-            ctx.fillRect(x, y, barWidth, height);
-            ctx.strokeRect(x, y, barWidth, height);
-            ctx.restore();
+            visualCtx.fillRect(x, y, barWidth, height);
+            visualCtx.strokeRect(x, y, barWidth, height);
+            visualCtx.restore();
         }
 
         // Spin the visualizer
@@ -106,15 +143,15 @@ const visualizer = (params={}, deltaTime) => {
 
         if(angleOffset == Math.PI * 2) angleOffset = 0;
 
-        ctx.restore();
+        visualCtx.restore();
     }
 
 	// 5 - draw circles
     if(params.showCircles)
     {
         let maxRadius = canvasHeight / 4;
-        ctx.save();
-        ctx.globalAlpha = 0.5;
+        visualCtx.save();
+        visualCtx.globalAlpha = 0.5;
 
         for(let i = 0; i < audioData.length; i++)
         {
@@ -122,41 +159,41 @@ const visualizer = (params={}, deltaTime) => {
             let percent = audioData[i] / 255;
 
             let circleRadius = percent * maxRadius;
-            ctx.beginPath();
-            ctx.fillStyle = utils.makeColor(255, 111, 111, .34 - percent / 3.0);
-            ctx.arc(canvasWidth / 2, canvasHeight / 2, circleRadius, 0, 2 * Math.PI, false);
-            ctx.fill();
-            ctx.closePath();
+            visualCtx.beginPath();
+            visualCtx.fillStyle = utils.makeColor(255, 111, 111, .34 - percent / 3.0);
+            visualCtx.arc(canvasWidth / 2, canvasHeight / 2, circleRadius, 0, 2 * Math.PI, false);
+            visualCtx.fill();
+            visualCtx.closePath();
 
             //blue-ish circles, bigger, more transparent
-            ctx.beginPath();
-            ctx.fillStyle = utils.makeColor(0, 0, 255, .1 - percent / 10.0);
-            ctx.arc(canvasWidth / 2, canvasHeight / 2, circleRadius * 1.5, 0, 2 * Math.PI, false);
-            ctx.fill();
-            ctx.closePath();
+            visualCtx.beginPath();
+            visualCtx.fillStyle = utils.makeColor(0, 0, 255, .1 - percent / 10.0);
+            visualCtx.arc(canvasWidth / 2, canvasHeight / 2, circleRadius * 1.5, 0, 2 * Math.PI, false);
+            visualCtx.fill();
+            visualCtx.closePath();
 
             //yellow-ish circles, smaller
-            ctx.beginPath();
-            ctx.fillStyle = utils.makeColor(200, 200, 0, .5 - percent / 5.0);
-            ctx.arc(canvasWidth / 2, canvasHeight / 2, circleRadius * .5, 0, 2 * Math.PI, false);
-            ctx.fill();
-            ctx.closePath();
+            visualCtx.beginPath();
+            visualCtx.fillStyle = utils.makeColor(200, 200, 0, .5 - percent / 5.0);
+            visualCtx.arc(canvasWidth / 2, canvasHeight / 2, circleRadius * .5, 0, 2 * Math.PI, false);
+            visualCtx.fill();
+            visualCtx.closePath();
         }
 
-        ctx.restore();
+        visualCtx.restore();
     }	
 }
 
 const objects = () => {
     for(let p of projectiles)
     {
-        p.draw(ctx, canvasWidth, canvasHeight);
+        p.draw(mainCtx, canvasWidth, canvasHeight);
     }
 
-    player.draw(ctx, canvasWidth, canvasHeight);
+    player.draw(mainCtx, canvasWidth, canvasHeight);
 }
 
-const effects = (params={}) => {
+const effects = (params={}, ctx) => {
     let imageData = ctx.getImageData(0, 0, canvasWidth, canvasHeight);
     let data = imageData.data;
     let length = data.length;
@@ -201,4 +238,6 @@ const getWidth = () => {return canvasWidth;}
 
 const getCtx = () => {return ctx;}
 
-export {setupCanvas,draw, getHeight, getWidth, getCtx};
+const getAngleOffset = () => {return angleOffset;}
+
+export {setupCanvas,draw, getHeight, getWidth, getCtx, getAngleOffset};
