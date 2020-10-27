@@ -4,6 +4,8 @@ let audioCtx;
 // **These are "private" properties - these will NOT be visible outside of this module (i.e. file)**
 // 2 - WebAudio nodes that are part of our WebAudio audio routing graph
 let element, sourceNode, analyserNode, gainNode;
+let distortionAmount = 20;
+let distortionFilter;
 
 // 3 - here we are faking an enumeration
 const DEFAULTS = Object.freeze({
@@ -36,15 +38,7 @@ const setupWebAudio = (filePath) => {
     // note the UK spelling of "Analyser"
     analyserNode = audioCtx.createAnalyser();
 
-    /*
-    // 6
-    We will request DEFAULTS.numSamples number of samples or "bins" spaced equally 
-    across the sound spectrum.
-
-    If DEFAULTS.numSamples (fftSize) is 256, then the first bin is 0 Hz, the second is 172 Hz, 
-    the third is 344Hz, and so on. Each bin contains a number between 0-255 representing 
-    the amplitude of that frequency.
-    */ 
+    distortionFilter = audioCtx.createWaveShaper();
 
     // fft stands for Fast Fourier Transform
     analyserNode.fftSize = DEFAULTS.numSamples;
@@ -55,25 +49,52 @@ const setupWebAudio = (filePath) => {
 
     // 8 - connect the nodes - we now have an audio graph
     sourceNode.connect(analyserNode);
-    analyserNode.connect(gainNode);
+    analyserNode.connect(distortionFilter);
+    distortionFilter.connect(gainNode);
     gainNode.connect(audioCtx.destination);
 }
 
-const loadSoundFile = (filePath) => {
-    element.src = filePath;
+const toggleDistortion = (params={}) => {
+    if(!params.normal){
+        distortionFilter.curve = null; // being paranoid and trying to trigger garbage collection
+        distortionFilter.curve = makeDistortionCurve(distortionAmount, params);
+    }
+    else
+    {
+        distortionFilter.curve = null;
+    }
+}
+  
+  // from: https://developer.mozilla.org/en-US/docs/Web/API/WaveShaperNode
+const makeDistortionCurve = (amount=20, params={}) => {
+    let n_samples = 256, curve = new Float32Array(n_samples);
+
+    for (let i =0 ; i < n_samples; ++i ) {
+        let x = i * 2 / n_samples - 1;
+
+        if(params["static"]) curve[i] = x * (Math.random() * amount / 100 + 1);  // Slight static distortion
+
+        if(params["buzz"]) curve[i] = x + Math.sin(Math.pow(x, 2)) * amount / 50; // Kind of buzzing distortion
+        
+        if(params["boosted"]) curve[i] = x * Math.PI * 3 / (Math.PI + 20 * Math.abs(x)) * amount / 100;
+    }
+
+    return curve;
 }
 
-const playCurrentSound = () => {
-    element.play();
-}
+const loadSoundFile = (filePath) => { element.src = filePath; }
 
-const pauseCurrentSound = () => {
-    element.pause();
-}
+const playCurrentSound = () => { element.play(); }
+
+const pauseCurrentSound = () => { element.pause(); }
 
 const setVolume = (value) => {
     value = Number(value);
     gainNode.gain.value = value;
 }
 
-export{audioCtx, setupWebAudio, playCurrentSound, pauseCurrentSound, loadSoundFile, setVolume, analyserNode, element};
+const setDistortionAmount = (distortion) => {distortionAmount = distortion;}
+
+export{audioCtx, setupWebAudio, playCurrentSound, 
+    pauseCurrentSound, loadSoundFile, setVolume, 
+    analyserNode, element, toggleDistortion, setDistortionAmount};

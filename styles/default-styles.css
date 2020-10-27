@@ -1,11 +1,26 @@
 :root {
-  --canvas-height: 600px;
-  --canvas-width: --canvas-height;
+  --canvas-width: 600px;
+  --left: 0;
+  --top: 0;
+  --group-radius: 300px;
 }
 
 body {
-	background: #eeeeee;
-	font-family: tahoma, verdana, sans serif;
+  font-family: 'Open Sans', sans-serif;
+	background: rgb(191, 186, 157);
+}
+
+h1{
+  color: black;
+  font-family: 'Cardo', serif;
+  text-align: center;
+  font-size: 300%;
+}
+
+h1 span{
+  font-size: 70%;
+  font-weight: lighter;
+  font-style: italic;
 }
 
 #canvas-group {
@@ -13,14 +28,17 @@ body {
   height: 600px;
   width: 600px;
   margin: 1rem auto;
+  border: 2px solid rgb(89, 87, 66);
+  border-radius: var(--group-radius);
+  background: rgb(191, 186, 157);
 }
 
 #canvas-group * {
   position: absolute;
-  left: 0;
-  top: 0;
+  left: var(--left);
+  top: var(--top);
   width: var(--canvas-width);
-  height: var(--canvas-height);
+  border-radius: 500px;
 }
 
 #main-canvas {
@@ -57,12 +75,9 @@ body {
   background-color: #3d392e;
 }
 
-#controls{
+#score{
   margin: 1rem auto;
-}
-
-#volumeLabel{
-  margin-left: 1rem;
+  text-align: center;
 }
 
 section{
@@ -74,15 +89,91 @@ section{
   width: 6rem;
 }
 
-button[data-pausing="no"]:after{
-  content: "Pause";
+#Emil{
+  display: none;
 }
 
-button[data-pausing="yes"]:after{
-  content: "Play";
+/* dat.GUI */
+.dg li:not(.folder){
+  background-color: rgb(214, 208, 182) !important;
+  color: rgb(89, 87, 66);
+  padding: 0 4px 0 0 !important;
+  border-bottom: none !important;
 }
 
-#fsButton{
-  font-size: 1.2rem;
-  width: 8rem;
+.dg li.title{
+  background-color: 	rgb(74, 70, 60) !important;
+  color: 	rgb(214, 208, 184);
+  padding: 0 4px 0 15px !important;
+}
+
+.dg.main .close-button.close-bottom{
+  background-color:	rgb(74, 70, 60) !important;
+  color: 	rgb(214, 208, 184);
+}
+
+.dg{
+  font-family: 'Open Sans', sans-serif !important;
+  font-size: 90% !important;
+  text-shadow: none !important;
+}
+
+.dg .property-name{
+  background-color: 	rgb(74, 70, 60);
+  color: 	rgb(214, 208, 184);
+  padding: 0 0 0 5px;
+  width: 30% !important;
+}
+
+.dg .c{
+  padding: 0 0 0 10px !important;
+}
+
+.dg .c .slider-fg{
+  background:rgb(172, 167, 147) !important;
+}
+
+.dg .c select{
+  font-family: 'Open Sans', sans-serif !important;
+  font-size: 90% !important;
+}
+
+.dg .cr{
+  border-left: none !important;
+}
+
+.dg .cr.number input[type=text]{
+  color: 	rgb(214, 208, 184) !important;
+  font-family: 'Open Sans', sans-serif !important;
+}
+
+.drop-down{
+  position: absolute;
+  top: 0;
+  left: 15px;
+  background-color:  rgb(214, 208, 182);
+  width: 600px;
+}
+
+.drop-down h2{
+  text-align: center;
+  background-color: 	rgb(74, 70, 60);
+  color: 	rgb(214, 208, 184);
+  margin: 0;
+  padding: 8px 0;
+}
+
+.drop-down ul li{
+  margin: 4px 0;
+}
+
+.drop-down-tab{
+  text-align: center;
+  background-color: 	rgb(74, 70, 60);
+  color: 	rgb(214, 208, 184);
+  font-size: 90%;
+}
+
+.close{
+  display: none;
 }

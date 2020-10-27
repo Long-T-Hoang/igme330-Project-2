@@ -18,10 +18,75 @@ const drawParams =
     showCircles : false,
     showNoise : false,
     showInvert : false,
-    showEmboss: false
+    showEmboss: false,
+    showOuterRing: true,
+    showStatic:false,
+    emilMode: false,
+    showGame: true
 };
 
-let audioData, analyserNode;
+const distortionParams ={
+    _static: false,
+    _buzz: false,
+    _boosted: false,
+    _normal: true,
+
+    set static(value)
+    {
+        this._static = value;
+        audio.toggleDistortion(this);
+    },
+
+    get static(){
+        return this._static;
+    },
+
+    set normal(value)
+    {
+        this._normal = value;
+        audio.toggleDistortion(this);
+    },
+
+    get normal()
+    {
+        return this._normal;
+    },
+
+    set buzz(value)
+    {
+        this._buzz = value;
+        audio.toggleDistortion(this);
+    },
+
+    get buzz(){
+        return this._buzz;
+    },
+
+    set boosted(value)
+    {
+        this._boosted = value;
+        audio.toggleDistortion(this);
+    },
+
+    get boosted(){
+        return this._boosted;
+    },
+
+    reset(){
+        this.static = false;
+        this.buzz = false;
+        this.boosted = false;
+        this.normal = false;
+    }
+};
+
+const mode = 
+{
+    frequency: true,
+    waveform: false
+}
+
+let audioData, waveformData, analyserNode;
 let prevAudioData = [];
 let projectiles = [];
 let deltaTime, now, lastUpdate = Date.now();
@@ -30,173 +95,257 @@ let timer = 0;
 const SPAWN_TIME = 0.7;
 let angleOffset = 0;
 let player = new classes.Player(0, 0);
-let mainCanvas, visualizerCanvas;
-let audioDuration = 0, audioStart, audioCurrent = 0, audioElapsed = 0;
+let canvasGroup, mainCanvas, visualizerCanvas;
+let audioDuration = 0, audioStart, audioPaused = 0, audioCurrent = 0, audioElapsed = 0;
 let progressBar = document.querySelector("#audio-progress");
 let scoreRef = 
 {
     score: 0
 }
 
-// 1 - here we are faking an enumeration
-const DEFAULTS = Object.freeze({
-	sound1  :  "media/NieR Automata - Simone.mp3"
-});
+// Controller for dat.GUI
+const controllerObject = {
+    _volume: 0.5,
+    _maxRadius: 150,
+    _numOfRings: 5,
+    _mode: "frequency",
+    _playing: false,
+    _pausing: true,
+    _track: "media/NieR - The Wretched Automatons.mp3",
+    _distortionAmount : 20,
 
-const init = () => {
-    audio.setupWebAudio(DEFAULTS.sound1);
+    set distortionAmount(value){
+        this._distortionAmount = value;
+        audio.setDistortionAmount(this._distortionAmount);
+        if(!this._normal) audio.toggleDistortion(distortionParams);
+    },
 
-	console.log("init called");
-    console.log(`Testing utils.getRandomColor() import: ${utils.getRandomColor()}`);
-    let canvasGroup = document.querySelector("#canvas-group")
-    mainCanvas = document.querySelector("#main-canvas"); // hookup <canvas> element
-    visualizerCanvas = document.querySelector("#visualizer");
-    setupUI(canvasGroup);
-    canvas.setupCanvas(mainCanvas, visualizerCanvas);
-    canvasHeight = canvas.getHeight();
-    canvasWidth = canvas.getWidth();
-    analyserNode = audio.analyserNode;
-    audioData = new Uint8Array(analyserNode.fftSize / 4);
+    get distortionAmount(){
+        return this._distortionAmount;
+    },
 
-    for(let i = 0; i < audioData.length; i++)
-    {
-        prevAudioData[i] = audioData[i];
-    }
+    set volume(value){
+        this._volume = value * 2 / 100;
+        audio.setVolume(this._volume);
+    },
 
-    document.addEventListener('keydown', function(e){
-        player.addForce(e);
-    });
-    document.addEventListener('keyup', function(e){player.addForce(e)});
+    get volume(){
+        return Math.round(this._volume * 100 / 2);
+    },
 
-    document.onfullscreenchange = e => {
-        if(document.fullscreenElement == null)
-        {
-            document.documentElement.style.setProperty('--canvas-height', '600px');
-        }
-    }
-
-    loop();
-}
-
-const setupUI = (canvasElement) => {
-  // A - hookup fullscreen button
-    const fsButton = document.querySelector("#fsButton");
-    const playButton = document.querySelector("#playButton");
-    const clearProjButton = document.querySelector("#clearProj");
-    const volumeSlider = document.querySelector("#volumeSlider");
-    const volumeLabel = document.querySelector("#volumeLabel");
-    const trackSelect = document.querySelector("#trackSelect");
-    const gradientCB = document.querySelector("#gradientCB");
-    const scoreLabel = document.querySelector("#scoreLabel");
-    gradientCB.checked = drawParams.showGradient;
-    const barsCB = document.querySelector("#barsCB");
-    barsCB.checked = drawParams.showBars;
-    const circlesCB = document.querySelector("#circlesCB");
-    circlesCB.checked = drawParams.showCircles;
-    const noiseCB = document.querySelector("#noiseCB");
-    noiseCB.checked = drawParams.showNoise;
-    const invertCB = document.querySelector("#invertCB");
-    invertCB.checked = drawParams.showInvert;
-    const embossCB = document.querySelector("#embossCB");
-    embossCB.checked = drawParams.showEmboss;
-
-    volumeLabel.innerHTML = volumeSlider.value / 2 * 100;
-
-    fsButton.onclick = e => {
-        console.log("init called");
-        document.documentElement.style.setProperty('--canvas-height', '100%');
-        utils.goFullscreen(canvasElement);
-    };
-    
-    playButton.onclick = e => {
+    play(){
         if(audio.audioCtx.state == "suspended")
         {
             audio.audioCtx.resume();
         }
 
         // Play new audio
-        if(e.target.dataset.playing == "no")
+        if(!this._playing)
         {
             audio.playCurrentSound();
             audioDuration = audio.element.duration;
-            e.target.dataset.playing = "yes";
-            e.target.dataset.pausing = "no";
+            this._playing = true;
+            this._pausing = false;
             audioStart = audio.audioCtx.currentTime;
         }
         // Resume audio
-        else if(e.target.dataset.pausing == "yes")
+        else if(this._pausing)
         {
             audio.playCurrentSound();
-            e.target.dataset.pausing = "no";
+            this._pausing = false;
         }
         // Pause audio
         else
         {
             audio.pauseCurrentSound();
-            e.target.dataset.pausing = "yes";
+            this._pausing = true;
         }
-    }
+    },
 
-    clearProjButton.onclick = e => {
-        clearProjectiles();
-    }
-
-    volumeSlider.oninput = e => {
-        // set gain
-        audio.setVolume(e.target.value);
-
-        // update label
-        volumeLabel.innerHTML = Math.round(e.target.value / 2 * 100);
-    }
-
-    trackSelect.onchange = e => {
-        audio.loadSoundFile(e.target.value);
+    set track(value){
+        audio.loadSoundFile(value);
 
         // pause current track if playing
-        if(playButton.dataset.playing = "yes")
+        if(this._playing)
         {
             audio.pauseCurrentSound();
-            playButton.dataset.playing = "no";
-            playButton.dataset.pausing = "yes";
+            this._playing = false;
+            this._pausing = true;
+        }
+
+        clearProjectiles();
+        audioPaused = 0;
+        scoreRef.score = 0;
+    },
+
+    get track(){
+        return this._track;
+    },
+
+    clearProj(){
+        clearProjectiles();
+    },
+
+    fullscreen(){
+        console.log("init called");
+        document.documentElement.style.setProperty('--canvas-width', '50%');
+        document.documentElement.style.setProperty('--left', '25%');
+        document.documentElement.style.setProperty('--top', '5%');
+        document.documentElement.style.setProperty('--group-radius', '0');
+        utils.goFullscreen(canvasGroup);
+    },
+
+    set mode(value){
+        this._mode = value;
+        mode.frequency = value == "frequency";
+        mode.waveform = value == "waveform";
+    },
+
+    get mode(){
+        let value = mode.frequency? "frequency" : "waveform";
+        return value;
+    },
+
+    set maxRadius(value){
+        this._maxRadius = value;
+        canvas.setMaxRadius(this._maxRadius);
+    },
+
+    get maxRadius(){
+        return this._maxRadius;
+    },
+
+    set numOfRings(value){
+        this._numOfRings = value;
+        canvas.setNumOfRing(this._numOfRings);
+    },
+
+    get numOfRings(){
+        return this._numOfRings;
+    }
+}
+
+const init = () => {
+    audio.setupWebAudio(controllerObject._track);
+
+    // Canvases refs
+    canvasGroup = document.querySelector("#canvas-group")
+    mainCanvas = document.querySelector("#main-canvas"); 
+    visualizerCanvas = document.querySelector("#visualizer");
+
+    // Setting up UI and canvas
+    setupUI();
+    canvas.setupCanvas(mainCanvas, visualizerCanvas);
+
+    // Canvas size
+    canvasHeight = canvas.getHeight();
+    canvasWidth = canvas.getWidth();
+
+    // Audio data refs
+    analyserNode = audio.analyserNode;
+    audioData = new Uint8Array(analyserNode.fftSize / 4);
+    waveformData = new Uint8Array(analyserNode.fftSize / 4);
+
+    // Initialize audio(frequency) and waveform data
+    for(let i = 0; i < audioData.length; i++)
+    {
+        prevAudioData[i] = audioData[i];
+    }
+
+    // Movement event listeners
+    document.addEventListener('keydown', function(e){
+        player.addForce(e);
+    });
+    document.addEventListener('keyup', function(e){player.addForce(e)});
+
+    // Fullscreen configurations for canvases
+    document.onfullscreenchange = e => {
+        if(document.fullscreenElement == null)
+        {
+            document.documentElement.style.setProperty('--canvas-width', '600px');
+            document.documentElement.style.setProperty('--left', '0');
+            document.documentElement.style.setProperty('--top', '0');
+            document.documentElement.style.setProperty('--group-radius', '300px');
         }
     }
 
-    gradientCB.onchange = e => {
-        drawParams.showGradient = gradientCB.checked;
-    }
+    loop();
+}
 
-    barsCB.onchange = e => {
-        drawParams.showBars = barsCB.checked;
-    }
+const setupUI = () => {
+    // Controls
+    const gui = new dat.GUI({width: 600});
 
-    circlesCB.onchange = e => {
-        drawParams.showCircles = circlesCB.checked;
-    }
+    gui.add(controllerObject, 'play').name("Play audio");
+    gui.add(controllerObject, 'track', {
+        "The Wretched Automatons": "media/NieR - The Wretched Automatons.mp3",
+        "Song of the Ancients - Fate": "media/NieR - Song of the Ancients - Fate.mp3",
+        "Shadowlord": "media/NieR - Shadowlord.mp3",
+        "Simone": "media/NieR Automata - Simone.mp3",
+        "Dependent Weakling - 8 bit version": "media/NieR Automata - Dependent Weakling[8bit].mp3",
+        "Weight of the World - 8 bit version": "media/NieR Automata - Weight of the World[8bit].mp3"
+    }).name("Track");
+    gui.add(controllerObject, 'volume').min(0).max(100).step(1).name("Volume");
+        
+    const canvas = gui.addFolder('Canvas Effects');
+    canvas.add(drawParams, 'showGradient').name("Show Gradient");
+    canvas.add(drawParams, 'showBars').name("Show Bars");
+    canvas.add(drawParams, 'showCircles').name("Show Circles");
+    canvas.add(controllerObject, 'maxRadius').min(100).max(300).step(1).name("Max Radius for Circles");
+    canvas.add(controllerObject, 'numOfRings').min(1).max(25).step(1).name("Number of Rings for Cirlces");
+    canvas.add(drawParams, 'showOuterRing').name("Show Outer Ring");
+    canvas.add(drawParams, 'emilMode').name("Emil Mode");
+    canvas.add(drawParams, 'showGame').name("Show Game");
+    // Effects
+    canvas.add(drawParams, 'showNoise').name("Show Noise");
+    canvas.add(drawParams, 'showInvert').name("Show Invert");
+    canvas.add(drawParams, 'showEmboss').name("Show Emboss");
+    canvas.add(drawParams, 'showStatic').name("Show Static");
 
-    noiseCB.onchange = e => {
-        drawParams.showNoise = noiseCB.checked;
-    }
+    const audio = gui.addFolder('Distortion effects');
+    audio.add(controllerObject, 'distortionAmount').min(0).max(100).step(1).name("Distortion Amount");
+    audio.add(distortionParams, 'normal').name("Disable distortion").listen().onChange(function(){setChecked("normal")});
+    audio.add(distortionParams, 'static').name("Static distortion").listen().onChange(function(){setChecked("static")});
+    audio.add(distortionParams, 'buzz').name("Buzz distortion").listen().onChange(function(){setChecked("buzz")});
+    audio.add(distortionParams, 'boosted').name("Boosted distortion").listen().onChange(function(){setChecked("boosted")});
 
-    invertCB.onchange = e => {
-        drawParams.showInvert = invertCB.checked;
+    gui.add(controllerObject, 'mode', {Frequency: "frequency", Waveform: "waveform"}).name("Mode");
+    gui.add(controllerObject, 'clearProj').name("Clear Projectiles");
+    gui.add(controllerObject, 'fullscreen').name("Fullscreen");
+
+    const scoreLabel = document.querySelector("#scoreLabel");
+    const instructionTab = document.querySelector('.drop-down-tab');
+    const instructionContent = document.querySelector('#drop-down-content');
+
+    instructionTab.onclick = (e) => {
+        if(instructionContent.classList.contains('close'))
+        {
+            instructionContent.classList.remove('close');
+            instructionTab.innerHTML = "Close Tab";
+        }
+        else
+        {
+            instructionContent.classList.add('close');
+            instructionTab.innerHTML = "Instruction";
+        }
     }
-    
-    embossCB.onchange = e => {
-        drawParams.showEmboss = embossCB.checked;
-    }
-} // end setupUI
+} 
 
 const loop = () => {
-    /* NOTE: This is temporary testing code that we will delete in Part II */
     requestAnimationFrame(loop);
 
-    // Update elasped time
+    // Update elasped time for progress bar
     if(!audio.element.paused)
     {
         audioCurrent = audio.audioCtx.currentTime;
-        audioElapsed = audioCurrent - audioStart;
-        console.log(`Progress ${audioElapsed / audioDuration}`);
+        audioElapsed = audioCurrent - audioStart - audioPaused;
         progressBar.value = audioElapsed / audioDuration;
+    }
+    // Calculate cumulative pause time
+    else if(controllerObject._playing)
+    {
+        audioPaused += audio.audioCtx.currentTime - audioCurrent;
+        audioCurrent = audio.audioCtx.currentTime;
     }
 
     // Calculate deltaTime
@@ -204,10 +353,17 @@ const loop = () => {
     deltaTime = (now - lastUpdate) / 1000;
     lastUpdate = Date.now();
 
-    analyserNode.getByteFrequencyData(audioData);
-    //analyserNode.getByteTimeDomainData(audioData); // waveform data
+    // Get audio data
+    if(mode.frequency)
+    {
+        analyserNode.getByteFrequencyData(audioData);
+    }
+    else
+    {
+        analyserNode.getByteTimeDomainData(waveformData); // waveform data
+    }
 
-    canvas.draw(drawParams, audioData, deltaTime);
+    canvas.draw(drawParams, mode, audioData, waveformData, deltaTime);
 
     timer += deltaTime;
     if(timer >= SPAWN_TIME) 
@@ -220,39 +376,38 @@ const loop = () => {
 }
 
 const spawnProjectiles = () => {
-    
-    let numMultiplier = 4;
-    let numOfBar = audioData.length / numMultiplier;   
-    let barSpacing = 4;
+    let numMultiplier = 4; // the higher the less spawn points there are
+    let numOfSpawnPt = audioData.length / numMultiplier;   // number of spawning points
     let radiusOffset = 75; // The higher, the closer the inner radius is to the center
     let minimumHeight = 200; 
     let maximumHeight = 270;
     let innerRadius = canvasHeight / 2 - radiusOffset;
     let outerRadius = innerRadius + maximumHeight;
-    let circumference = 2 * innerRadius * Math.PI;
-    let lengthForBars = circumference - numOfBar * barSpacing;
-    let barWidth = lengthForBars / numOfBar;
-    let angleDelta = Math.PI / 36;
-    let angleBetweenBars = 2 * Math.PI / numOfBar;
+    let angleBetweenSpawnPt = 2 * Math.PI / numOfSpawnPt;
 
-    for(let i = 0; i < numOfBar; i++)
+    for(let i = 0; i < numOfSpawnPt; i++)
     {
         let dataIndex = i * numMultiplier;
         let data = audioData[dataIndex];
 
         if(Math.abs(data - prevAudioData[dataIndex]) > 20 || data > 230)
         {
-            let height = (maximumHeight - minimumHeight) * data / 255 + minimumHeight;
-            let radius = outerRadius - height;
-            angleOffset = canvas.getAngleOffset();
+            let height = (maximumHeight - minimumHeight) * data / 255 + minimumHeight;  // calculate "height" of bar
+            let radius = outerRadius - height; // convert to radius from center of canvas
+            angleOffset = canvas.getAngleOffset(); 
 
-            let x = Math.cos(-Math.PI / 2 + i * angleBetweenBars + angleOffset) * radius;
-            let y = Math.sin(-Math.PI / 2 + i * angleBetweenBars + angleOffset) * radius;
+            // Calculate spawn points position
+            let x = Math.cos(-Math.PI / 2 + i * angleBetweenSpawnPt + angleOffset) * radius;
+            let y = Math.sin(-Math.PI / 2 + i * angleBetweenSpawnPt + angleOffset) * radius;
 
+            // Change color
             let colorString = i % 2 == 0? "rgb(251, 109, 22)" : "rgb(62, 10, 94)";
+
+            // Normalize frequency data and spawn projectiles based on data
             let dataMultiplier = data / 255;
             projectiles.push(new classes.Projectile(x, y, 0 ,0, dataMultiplier, dataMultiplier, dataMultiplier, player, colorString));
 
+            // Store data for next call
             prevAudioData[dataIndex] = data;
         }
     }
@@ -274,8 +429,17 @@ const gameLoop = () => {
     player.move(deltaTime);
 }
 
+// Delete all projectiles 
 const clearProjectiles = () => {
     projectiles.splice(0, projectiles.length);
+}
+
+const setChecked = ( prop ) => {
+    for (let param in distortionParams){
+        distortionParams[param] = false;
+    }
+
+    distortionParams[prop] = true;
 }
 
 const getProjectiles = () => {return projectiles;}

@@ -2,35 +2,51 @@ class Projectile
 {
     constructor(x, y, xDes, yDes, speed, radius, deathTime, player, colorString, damage = 1)
     {
+        // Projectile position
         this.x = x;
         this.y = y;
+        // Player ref
         this.player = player;
+        // Initial destination position
         this.xDes = this.player.x;
         this.yDes = this.player.y;
+        // Hit point
         this.damage = damage;
+        // Speed and radius based on frequency data
         this.speed = Math.pow(speed, 2) * 100 + 50;
         this.radius = Math.pow(radius, 2) * 5 + 5;
+        // Destroy tag
         this.destroy = false;
-        let distance = Math.sqrt(Math.pow(this.x - this.xDes, 2) + Math.pow(this.y - this.yDes, 2));
-        this.acc = {x : (this.xDes - this.x) / distance, y : (this.yDes - this.y) / distance};
-        this.homingAccMultiplier = 0.5;
-        this.timer = 0;
+        let distance = Math.sqrt(Math.pow(this.x - this.xDes, 2) + Math.pow(this.y - this.yDes, 2));    // Distance to initial destination
+        this.acc = {x : (this.xDes - this.x) / distance, y : (this.yDes - this.y) / distance};  // Acceleration
+        this.homingAccMultiplier = 0.5; // Multiplier for acceleration towards player
+        this.timer = 0; 
         this.deathTime = deathTime * 2 + 2;
         this.colorString = colorString;
     }
 
-    draw(ctx, canvasWidth, canvasHeight)
+    draw(ctx, canvasWidth, canvasHeight, params={}, img)
     {
         ctx.save();
 
         ctx.translate(Math.floor(this.x + canvasWidth / 2), Math.floor(this.y + canvasHeight / 2));
 
         ctx.fillStyle = this.colorString;
+        ctx.lineWidth = 0.5;
 
         ctx.beginPath();
         ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
         ctx.closePath();
-        ctx.fill();
+
+        if(!params.emilMode)
+        {
+            ctx.fill();
+        }
+        else
+        {
+            ctx.drawImage(img, -this.radius , -this.radius , this.radius * 2, this.radius * 2);
+        }
+        ctx.stroke();
 
         ctx.restore();
     }
@@ -81,9 +97,10 @@ class Player
         this.radius = 15;
         this.acc = {x : 0, y : 0};
         this.friction = 0.98;
-        this.keyMap = {};
-        this.clampOffset = 50;
+        this.keyMap = {};   // Data on keydown
         this.radiusLimit = 200;
+
+        // Shadow info to draw
         this.shadowOffset = 3;
         this.shadowOpacity = 0.4;
         this.addForceTimer = 0;
@@ -108,22 +125,26 @@ class Player
 
         // Main circle
         ctx.fillStyle = "rgb(213, 211, 190)";
+        ctx.strokeStyle = `rgba(129, 127, 104, ${this.shadowOpacity})`;
 
         ctx.beginPath();
         ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
         ctx.closePath();
         ctx.fill();
+        ctx.stroke();
 
         ctx.restore();
     }
     
     addForce(event)
     {
+        // Disable movement briefly after hitting barrier
         if(this.addForceTimer > 0)
         {
             return;
         }
 
+        // Setting keys to keydown
         if(event.key == "w" || event.key == "W")
         {
             this.keyMap["w"] = event.type == 'keydown';

@@ -2,57 +2,48 @@
 <html lang="en">
 <head>
 	<meta charset="utf-8" />
-	<title>Audio Visualizer</title>
+	<title>NieR Visualizer</title>
 	<link href="styles/default-styles.css" type="text/css" rel="stylesheet" />
-	<script src="./src/loader.js" type="module"></script>
+	<link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@600&display=swap" rel="stylesheet">
+	<link href="https://fonts.googleapis.com/css2?family=Cardo:ital,wght@0,700;1,400&display=swap" rel="stylesheet">
+
+	<script src="./src/loader.js" type="module"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/dat-gui/0.7.6/dat.gui.min.js" 
+	integrity="sha256-HJ7j+71YYw6Kcs8THwQV9lXmPOcR0eXlg7n8KRTZsyA=" crossorigin="anonymous"></script>
 </head>
 <body>
 <main>
+	<h1>NieR <span>Visualizer</span></h1>
+
 	<div id="canvas-group">
 		<canvas width="600" height="600" id="main-canvas"></canvas>
 		<canvas width="600" height="600" id="visualizer"></canvas>
+	</div>
+
+	<div id="score">
+		<p id="scoreLabel">Score: 0</p>
 	</div>
 
 	<div id="progress">
 		<progress id="audio-progress" value="0" max="1"></progress>
 	</div>
 
-	<div id="controls">
-		<section>
-			<button id="playButton" data-playing="no"></button>
-			<button id="fsButton">Full Screen</button>
-			<button id="clearProj">Clear Projectiles</button>
-		
-			<label>Track: 
-				<select id="trackSelect">
-					<option value="media/NieR Automata - Simone.mp3" selected>Simone</option>
-					<option value="media/NieR - The Wretched Automatons.mp3">The Wretched Automatons</option>
-					<option value="media/NieR - Shadowlord.mp3">Shadowlord</option>
-					<option value="media/NieR - Song of the Ancients - Fate.mp3">Song of the Ancients - Fate</option>
-				</select>
-			</label>
-		</section>
-		
-		<section>
-			Volume: <input type="range" id="volumeSlider" min="0" max="2" value="1" step="0.01">
-			<span id="volumeLabel">???</span>
-		</section>
+	<div class="drop-down">
+		<div id="drop-down-content" class="close">
+			<h2>Instruction</h2>
+			<ul>
+				<li>Projectiles will be shot from the edge of the screen.</li>
+				<li>Try to dodge them while avoiding the barrier.</li>
+				<li>Projectiles gets destroyed after a while if not hitting the player, <br> you scores.</li>
+				<li>Hitting the barrier will make the player uncontrollable for a brief moment.</li>
+				<li>Try to get as much score as possible.</li>
+				<li>The game resets when you change to a new song.</li>
+			</ul>
+		</div>
 
-		<section>
-			<span><input type="checkbox" id="gradientCB"><label for="gradientCB">Show Gradient</label></span>
-			<span><input type="checkbox" id="barsCB"><label for="barsCB">Show Bars</label></span>
-			<span><input type="checkbox" id="circlesCB"><label for="circlesCB">Show Circles</label></span>
-			<!-- we'll use this 4th checkbox soon! -->
-			<span><input type="checkbox" id="noiseCB"><label for="noiseCB">Show Noise</label></span>
-			<span><input type="checkbox" id="invertCB"><label for="invertCB">Show Invert</label></span>
-			<span><input type="checkbox" id="embossCB"><label for="embossCB">Show Emboss</label></span>
-		</section>
-
-		<section>
-			<p id="scoreLabel">Score: 0</p>
-		</section>
-		  
+		<div class="drop-down-tab">Instruction</div>
 	</div>
+
+	<img src="media/emil-face.png" id="Emil">
 </main>
 </body>
 </html>
