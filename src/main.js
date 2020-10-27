@@ -276,6 +276,8 @@ const setupUI = () => {
     // Controls
     const gui = new dat.GUI({width: 600});
 
+    gui.close();
+    
     gui.add(controllerObject, 'play').name("Play audio");
     gui.add(controllerObject, 'track', {
         "The Wretched Automatons": "media/NieR - The Wretched Automatons.mp3",
