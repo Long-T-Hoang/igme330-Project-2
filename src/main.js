@@ -277,7 +277,7 @@ const setupUI = () => {
     const gui = new dat.GUI({width: 600});
 
     gui.close();
-    
+
     gui.add(controllerObject, 'play').name("Play audio");
     gui.add(controllerObject, 'track', {
         "The Wretched Automatons": "media/NieR - The Wretched Automatons.mp3",
@@ -356,14 +356,8 @@ const loop = () => {
     lastUpdate = Date.now();
 
     // Get audio data
-    if(mode.frequency)
-    {
-        analyserNode.getByteFrequencyData(audioData);
-    }
-    else
-    {
-        analyserNode.getByteTimeDomainData(waveformData); // waveform data
-    }
+    analyserNode.getByteFrequencyData(audioData);
+    analyserNode.getByteTimeDomainData(waveformData); // waveform data
 
     canvas.draw(drawParams, mode, audioData, waveformData, deltaTime);
 
