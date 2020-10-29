@@ -372,7 +372,7 @@ const loop = () => {
 }
 
 const spawnProjectiles = () => {
-    let numMultiplier = 4; // the higher the less spawn points there are
+    let numMultiplier = 8; // the higher the less spawn points there are
     let numOfSpawnPt = audioData.length / numMultiplier;   // number of spawning points
     let radiusOffset = 75; // The higher, the closer the inner radius is to the center
     let minimumHeight = 200; 
